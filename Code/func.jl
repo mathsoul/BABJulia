@@ -14,7 +14,7 @@ function initPrior(OLS)
   dμ = 0.5
   dσ = 10.0
   σβ2a = 2.1
-  σβ2b = 1(σβ2a + 1)
+  σβ2b = 1(σβ2a - 1)
   σλ2a = 1e-6
   σλ2b = 1e-6
   Prior = Prior_type(αμ,ασ,βμ,βσ,λμ,λσ,
@@ -54,9 +54,9 @@ function initMC(Prior::Prior_type,OLS::OLS_type,nALV::Int64)
   a = 0
   b = 1
   c = rand(Normal(Prior.cμ,Prior.cσ))
-  d = rand(Truncated(Normal(Prior.cμ,Prior.cσ),0,1))
+  d = rand(Truncated(Normal(Prior.dμ,Prior.dσ),0,1))
   σβ2 = rand()
-  σλ2 = 2rand()
+  σλ2 = 10rand()
 
   MC_current = MC_current_type(β,λ,α,a,b,c,d,σβ2,σλ2)
   return(MC_current)
@@ -211,7 +211,7 @@ function SV(SV_input::SV_type)
   return(theta)
 end
 
-function PosNormal(Prμ::Float64,Prσ::Float64,LKμ::Float64,LKσ2::Float64,n::Float64)
+function posNormal(Prμ::Float64,Prσ::Float64,LKμ::Float64,LKσ2::Float64,n::Float64)
   Posσ2 = 1/(Prσ^(-2) + LKσ2^(-1)*n)
   Posσ =  sqrt(Posσ2)
   Posμ = Posσ2 * (Prμ * Prσ^(-2) + LKμ * LKσ2^(-1))
@@ -229,7 +229,7 @@ function sample_α(one_stock_ALV::Vector{Float64},mkt_related::Vector{Float64},
   LKσ2 = 1/sum(exp(-λ))
   LKμ = LKσ2 * sum((one_stock_ALV - β .* mkt_related)./exp(λ))
 
-  dis = PosNormal(Prior.αμ,Prior.ασ,LKμ,LKσ2,1.)
+  dis = posNormal(Prior.αμ,Prior.ασ,LKμ,LKσ2,1.)
   return(fill(rand(dis),n))
 end
 
@@ -241,9 +241,9 @@ function sample_c(MC_current::MC_current_type,Prior::Prior_type)
   n = convert(Float64,length(λ))
 
   LKμ = sum(λ[2:end] - d.* λ[1:end-1])
-  LSσ2 = σλ2
+  LKσ2 = σλ2
 
-  dis = PosNormal(Prior.cμ,Prior.cσ,LKμ,LKσ2,n-1)
+  dis = posNormal(Prior.cμ,Prior.cσ,LKμ,LKσ2,n-1)
   return(rand(dis))
 end
 
@@ -259,14 +259,18 @@ function sample_d(MC_current::MC_current_type,Prior::Prior_type)
   LKσ2 = σλ2
   n = sum((λ[1:end-1]-λ_stat_mean).^2)
 
-  dis = PosNormal(Prior.dμ,Prior.dσ,LKμ,LKσ2,n)
+  dis = posNormal(Prior.dμ,Prior.dσ,LKμ,LKσ2,n)
 
   (μ,) = params(dis)
 
   draw = rand(Truncated(dis,0,1))
 
   if isfinite(draw)
-    return(draw)
+    if draw == 1
+      return(rand(Uniform(0,1e-8)))
+    else
+      return(draw)
+    end
   else
     if μ < 0
       return(rand(Uniform(0,1e-8)))
@@ -283,7 +287,7 @@ function sample_σβ2(MC_current::MC_current_type,Prior::Prior_type)
   n = length(β)
 
   LKa = n/2
-  LKb = 1/2sum((β[2:end] - a - b * β[1:end-1]).^2)
+  LKb = 1/2*sum((β[2:end] - a - b * β[1:end-1]).^2)
 
   dis = InverseGamma(Prior.σβ2a + LKa, Prior.σβ2b + LKb)
   return(rand(dis))
@@ -299,16 +303,61 @@ function sample_σλ2(MC_current::MC_current_type,Prior::Prior_type)
 
   LKa = n/2
   if d != 1
-    LKb = 1/2sum((λ[2:end] - λ_stat_mean - d*(λ[1:end-1] - λ_stat_mean)).^2)
+    LKb = 1/2*sum((λ[2:end] - λ_stat_mean - d*(λ[1:end-1] - λ_stat_mean)).^2)
   else
-    LKb = 1/2sum((λ[2:end] - c - d * λ[1:end-1]).^2)
+    LKb = 1/2*sum((λ[2:end] - c - d * λ[1:end-1]).^2)
   end
 
   dis = InverseGamma(Prior.σλ2a + LKa, Prior.σλ2b + LKb)
   return(rand(dis))
 end
 
+function initSim()
+  β1 = 1
+  λ1 = 2
+  α = 0.5
+  a = 0
+  b = 1
+  c = 0.4
+  d = 0.8
+  σβ = 0.4
+  σλ = 2
+  Sim = Sim_type(β1,λ1,α,a,b,c,d,σβ,σλ)
+  return(Sim)
+end
 
 
+function simData(mkt::Vector{Float64},Sim::Sim_type)
+  β1 = Sim.β1
+  λ1 = Sim.λ1
+  α = Sim.α
+  a = Sim.a
+  b = Sim.b
+  c = Sim.c
+  d = Sim.d
+  σβ = Sim.σβ
+  σλ = Sim.σλ
+
+  n = length(mkt)
+
+  β = zeros(Float64,n)
+  β[1] = β1
+
+  λ = zeros(Float64,n)
+  λ[1] = λ1
+
+  for i = 2:n
+    β[i] = rand(Normal(β[i-1],σβ))
+    λ[i] = rand(Normal(c + d*λ[i-1], σλ))
+  end
+
+  # λ = 2ones(Float64,n)
+  stock = zeros(Float64,n)
+  for i = 1:n
+    stock[i] = rand(Normal(α + β[i]*mkt[i],exp(λ[i]/2)))
+  end
+
+  return stock,β,λ
+end
 
 

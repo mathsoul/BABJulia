@@ -79,3 +79,15 @@ type SV_type
   a1::Float64
   R1::Float64
 end
+
+type Sim_type
+  β1::Float64
+  λ1::Float64
+  α::Float64
+  a::Float64
+  b::Float64
+  c::Float64
+  d::Float64
+  σβ::Float64
+  σλ::Float64
+end

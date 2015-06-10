@@ -1,0 +1,26 @@
+  FFBS_input = conv2FFBS_type(one_stock_ALV,mkt_related,MC_current,Prior)
+
+  (MC_current.β,β_1MC[:,k]) = FFBS(FFBS_input)
+
+  MC_current.α = sample_α(one_stock_ALV,mkt_related,MC_current,Prior)
+
+  MC_current.c = sample_c(MC_current::MC_current_type,Prior::Prior_type)
+
+  MC_current.d = sample_d(MC_current::MC_current_type,Prior::Prior_type)
+
+  MC_current.σβ2 = sample_σβ2(MC_current::MC_current_type,Prior::Prior_type)
+
+  MC_current.σλ2 = sample_σλ2(MC_current::MC_current_type,Prior::Prior_type)
+
+
+
+  MC_current.β = β_true
+MC_current.α = Sim.α
+MC_current.a = Sim.a
+MC_current.b = Sim.b
+MC_current.c = Sim.c
+MC_current.d = Sim.d
+MC_current.σβ2 = Sim.σβ^2
+MC_current.σλ2 = Sim.σλ^2
+
+

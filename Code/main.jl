@@ -1,13 +1,16 @@
 using DataFrames
 using Distributions
 using GLM
-using Gadfly
+# using Gadfly
 
 cd("C:\\Users\\msbcr563\\BABJulia")
 
 stock = readtable(".\\Data\\stock.csv")
 mkt = readtable(".\\Data\\mkt.csv")
 alive = readtable(".\\Data\\alive.csv")
+rf = readtable(".\\Data\\rf.csv")
+
+
 
 include("InitType.jl")
 include("func.jl")
@@ -18,7 +21,7 @@ srand(070298)
 
 tic()
 
-β_all = 10000ones(Float64,(Para.n_stocks,Para.T))
+β_all = 10000ones(Float64,(Para.T,Para.n_stocks))
 i = 1
 j = 1
 k = 1
@@ -27,9 +30,12 @@ for i =  1:Para.n_stocks
   nALV = alive[2,i] - alive[1,i] + 1
   ALV = alive[1,i]:alive[2,i]
 
-  one_stock_ALV = convert(Array{Float64,1},stock[ALV,i])
+  rf_related = convert(Vector{Float64},rf[ALV,1])
 
-  mkt_related = convert(Array{Float64,1},mkt[ALV,1])
+  one_stock_ALV = convert(Vector{Float64},stock[ALV,i]) - rf_related
+
+  mkt_related = convert(Vector{Float64},mkt[ALV,1]) - rf_related
+
 
   OLS = getOLS(one_stock_ALV,mkt_related)
 
@@ -66,7 +72,7 @@ for i =  1:Para.n_stocks
     β_1stock[:,j] = mean(β_1MC[:,Para.burnin+1:Para.N],2)
 
   end
-  β_all[i,ALV] = mean(β_1stock,2)
+  β_all[ALV,i] = mean(β_1stock,2)
 
 end
 
@@ -74,6 +80,3 @@ end
 toc()
 
 writecsv(".\\Data\\βEst.csv",β_all)
-
-
-

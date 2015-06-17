@@ -11,7 +11,6 @@ alive = readtable(".\\Data\\alive.csv")
 rf = readtable(".\\Data\\rf.csv")
 
 
-
 include("InitType.jl")
 include("func.jl")
 
@@ -30,7 +29,7 @@ for i =  1:Para.n_stocks
   nALV = alive[2,i] - alive[1,i] + 1
   ALV = alive[1,i]:alive[2,i]
 
-  rf_related = convert(Vector{Float64},rf[ALV,1])
+  rf_related = convert(Vector{Float64},rf[ALV,2])
 
   one_stock_ALV = convert(Vector{Float64},stock[ALV,i]) - rf_related
 
